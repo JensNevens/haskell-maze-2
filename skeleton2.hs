@@ -2,6 +2,7 @@
 
 import qualified System.Environment
 import qualified Data.Map.Strict as Map
+import Control.Monad
 
 main :: IO ()
 main = do [path] <- System.Environment.getArgs
@@ -12,20 +13,16 @@ main = do [path] <- System.Environment.getArgs
 class (Read board, Show position) => Maze board position where
   entrance :: board -> position
   exits :: board -> [position]
-  neighbours :: board -> position -> Maybe [position]
+  neighbours :: board -> position -> [position]
   shortest :: board -> Maybe [position]
 
-data Position = Position (Int, Int) deriving (Show)
+newtype Position = Position (Int, Int) -- (row, column)
+                   deriving (Show, Eq, Ord)
 
-instance Eq Position where
-  (==) (Position (x1,y1)) (Position (x2,y2)) =
-    (==) (x1, y1) (x2, y2)
-
-instance Ord Position where
-  compare (Position (x1,y1)) (Position (x2,y2)) =
-    compare (x1,y1) (x2,y2)
-
-data Board = Board Position [Position] (Map.Map Position [Position]) deriving (Show)
+data Board = Board Position -- entrance
+                   [Position] -- exits
+                   (Map.Map Position [Position]) -- graph, adjacancy representation
+             deriving (Show)
 
 instance Read Board where
   readsPrec _ input =
@@ -33,9 +30,9 @@ instance Read Board where
         entrance = head $ elemIndexes maze "*"
         frees = elemIndexes maze " "
         exits = elemIndexes maze "@"
-        locations = [entrance] ++ frees ++ exits
-        mapdata = [ (p, freeNeighbours p locations) | p <- locations ]
-    in [((Board entrance exits (Map.fromList mapdata)), "")]
+        nodes = [entrance] ++ frees ++ exits
+        graph = [ (n, freeNeighbours n nodes) | n <- nodes ]
+    in [((Board entrance exits (Map.fromList graph)), "")]
 
 elemIndexes :: [[Char]] -> [Char] -> [Position]
 elemIndexes maze item =
@@ -49,7 +46,8 @@ getItem :: [[Char]] -> (Int,Int) -> [Char]
 getItem maze (r,c) = [maze !! r !! c]
 
 freeNeighbours :: Position -> [Position] -> [Position]
-freeNeighbours current free = filter (\x -> isNeighbour current x) free
+freeNeighbours current free =
+  filter (\x -> isNeighbour current x) free
 
 isNeighbour :: Position -> Position -> Bool
 isNeighbour (Position (r1,c1)) (Position (r2,c2)) =
@@ -58,4 +56,21 @@ isNeighbour (Position (r1,c1)) (Position (r2,c2)) =
 instance Maze Board Position where
   entrance (Board entrance _ _) = entrance
   exits (Board _ exits _) = exits
-  neighbours (Board _ _ dict) pos = Map.lookup pos dict
+  neighbours (Board _ _ graph) pos =
+      getNeighbours $ Map.lookup pos graph
+    where
+      getNeighbours (Just ns) = ns
+      getNeighbours Nothing = []
+
+allPaths :: Board -> [Position] -> [Position] -> [[Position]]
+allPaths (Board entrance exits graph) path visited = do
+    succNode <- neighbours (Board entrance exits graph) currNode
+    guard (not $ succNode `elem` visited)
+    go (Board entrance exits graph) path visited currNode succNode
+  where
+    currNode = head path
+    go (Board entrance exits graph) path visited currNode succNode
+      | succNode `elem` exits = return $ reverse $ (succNode:path)
+      | otherwise = allPaths (Board entrance exits graph)
+                             (succNode:path)
+                             (currNode:visited)
