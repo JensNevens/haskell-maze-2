@@ -3,18 +3,20 @@
 import qualified System.Environment
 import qualified Data.Map.Strict as Map
 import Control.Monad
+import Data.List (minimumBy, maximumBy)
+import Data.Ord (comparing)
 
 main :: IO ()
 main = do [path] <- System.Environment.getArgs
           maze <- readFile path
-          --putStr $ show $ shortest $ read maze
-          putStr $ show $ (read maze :: Board)
+          putStr $ show $ (shortest $ (read maze :: Board) :: [Position])
 
 class (Read board, Show position) => Maze board position where
   entrance :: board -> position
   exits :: board -> [position]
   neighbours :: board -> position -> [position]
-  shortest :: board -> Maybe [position]
+  shortest :: board -> [position]
+  longest :: board -> [position]
 
 newtype Position = Position (Int, Int) -- (row, column)
                    deriving (Show, Eq, Ord)
@@ -56,11 +58,22 @@ isNeighbour (Position (r1,c1)) (Position (r2,c2)) =
 instance Maze Board Position where
   entrance (Board entrance _ _) = entrance
   exits (Board _ exits _) = exits
+
   neighbours (Board _ _ graph) pos =
       getNeighbours $ Map.lookup pos graph
     where
       getNeighbours (Just ns) = ns
       getNeighbours Nothing = []
+
+  shortest (Board entrance exits graph) =
+      minimumBy (comparing length) paths
+    where
+      paths = allPaths (Board entrance exits graph) [entrance] []
+
+  longest (Board entrance exits graph) =
+      maximumBy (comparing length) paths
+    where
+      paths = allPaths (Board entrance exits graph) [entrance] []
 
 allPaths :: Board -> [Position] -> [Position] -> [[Position]]
 allPaths (Board entrance exits graph) path visited = do
