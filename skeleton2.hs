@@ -9,21 +9,21 @@ import Data.Ord (comparing)
 main :: IO ()
 main = do [path] <- System.Environment.getArgs
           maze <- readFile path
-          putStr $ show $ (shortest $ (read maze :: Board) :: [Position])
+          putStr $ show $ (shortest $ (read maze :: Board) :: Maybe [Position])
 
 class (Read board, Show position) => Maze board position where
   entrance :: board -> position
   exits :: board -> [position]
   neighbours :: board -> position -> [position]
-  shortest :: board -> [position]
-  longest :: board -> [position]
+  shortest :: board -> Maybe [position]
+  longest :: board -> Maybe [position]
 
 newtype Position = Position (Int, Int) -- (row, column)
                    deriving (Show, Eq, Ord)
 
 data Board = Board Position -- entrance
                    [Position] -- exits
-                   (Map.Map Position [Position]) -- graph, adjacancy representation
+                   (Map.Map Position [Position]) -- adjacancy list
              deriving (Show)
 
 instance Read Board where
@@ -65,21 +65,31 @@ instance Maze Board Position where
       getNeighbours (Just ns) = ns
       getNeighbours Nothing = []
 
-  shortest (Board entrance exits graph) =
-      minimumBy (comparing length) paths
+  -- shortest (Board entrance [] graph) = Nothing
+  -- shortest (Board entrance exits graph)
+  --     | paths == [] = Nothing
+  --     | otherwise = Just $ minimumBy (comparing length) paths
+  --   where
+  --     paths = allPaths (Board entrance exits graph) [entrance] []
+  shortest (Board entrance [] graph) = Nothing
+  shortest (Board entrance exits graph)
+      | path == [] = Nothing
+      | otherwise = Just path
     where
-      paths = allPaths (Board entrance exits graph) [entrance] []
+      path = bfs (Board entrance exits graph) [[entrance]] []
 
-  longest (Board entrance exits graph) =
-      maximumBy (comparing length) paths
+  longest (Board entrance [] graph) = Nothing
+  longest (Board entrance exits graph)
+      | paths == [] = Nothing
+      | otherwise = Just $ maximumBy (comparing length) paths
     where
       paths = allPaths (Board entrance exits graph) [entrance] []
 
 allPaths :: Board -> [Position] -> [Position] -> [[Position]]
-allPaths (Board entrance exits graph) path visited = do
-    succNode <- neighbours (Board entrance exits graph) currNode
+allPaths board path visited = do
+    succNode <- neighbours board currNode
     guard (not $ succNode `elem` visited)
-    go (Board entrance exits graph) path visited currNode succNode
+    go board path visited currNode succNode
   where
     currNode = head path
     go (Board entrance exits graph) path visited currNode succNode
@@ -87,3 +97,19 @@ allPaths (Board entrance exits graph) path visited = do
       | otherwise = allPaths (Board entrance exits graph)
                              (succNode:path)
                              (currNode:visited)
+
+bfs :: Board -> [[Position]] -> [Position] -> [Position]
+bfs (Board entrance exits graph) [] visited = []
+bfs (Board entrance exits graph) paths visited
+    | currNode `elem` exits = reverse path
+    | not $ currNode `elem` visited = bfs (Board entrance exits graph)
+                                          ((tail paths)++newPaths)
+                                          (currNode:visited)
+    | otherwise = bfs (Board entrance exits graph)
+                      (tail paths)
+                      visited
+  where
+    path = head paths
+    currNode = head path
+    ns = neighbours (Board entrance exits graph) currNode
+    newPaths = [ (n:path) | n <- ns ]
