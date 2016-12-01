@@ -4,7 +4,7 @@ import qualified System.Environment
 import Position
 import Board
 import Instance1
---import Instance2
+-- import Instance2
 
 main :: IO ()
 main = do [path] <- System.Environment.getArgs

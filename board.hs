@@ -5,8 +5,8 @@ module Board (Board(..), getSymbol) where
 
   import Position
 
-  data Board = Board Int -- rows
-                     Int -- columns
+  data Board = Board Int -- rows/height
+                     Int -- columns/width
                      Position -- entrance
                      [Position] -- exits
                      (Map.Map Position [Position]) -- adjacancy list
@@ -14,14 +14,14 @@ module Board (Board(..), getSymbol) where
   instance Read Board where
     readsPrec _ input =
       let maze = lines input
-          rows = length maze
-          cols = length $ head maze
-          entrance = head $ elemIndexes maze "*"
-          frees = elemIndexes maze " "
-          exits = elemIndexes maze "@"
-          nodes = [entrance] ++ frees ++ exits
-          graph = [ (n, freeNeighbours n nodes) | n <- nodes ]
-      in [((Board rows cols entrance exits (Map.fromList graph)), "")]
+          h = length maze
+          w = length $ head maze
+          entrance = head $ index maze "*"
+          blanks = index maze " "
+          exits = index maze "@"
+          nodes = [entrance] ++ blanks ++ exits
+          graph = [ (n, neighbours n nodes) | n <- nodes ]
+      in [((Board h w entrance exits (Map.fromList graph)), "")]
 
   getSymbol :: Board -> Position -> Maybe [Position] -> Char
   getSymbol (Board _ _ entrance exits graph) pos Nothing
@@ -36,22 +36,22 @@ module Board (Board(..), getSymbol) where
     | pos `elem` (Map.keys graph) = ' '
     | otherwise = 'X'
 
-  elemIndexes :: [[Char]] -> [Char] -> [Position]
-  elemIndexes maze item =
+  index :: [[Char]] -> [Char] -> [Position]
+  index maze item =
     let rows = length maze
         cols = length $ head maze
     in [ Position (r,c) | r <- [0..rows-1],
                           c <- [0..cols-1],
-                          getItem maze (r,c) == item]
+                          maze !!! (r,c) == item]
 
-  getItem :: [[Char]] -> (Int,Int) -> [Char]
-  getItem maze (r,c) = [maze !! r !! c]
+  (!!!) :: [[Char]] -> (Int,Int) -> [Char]
+  (!!!) maze (r,c) = [maze !! r !! c]
 
-  freeNeighbours :: Position -> [Position] -> [Position]
-  freeNeighbours current free =
-    filter (\x -> isNeighbour current x) free
+  neighbours :: Position -> [Position] -> [Position]
+  neighbours current free =
+    filter (nextto current) free
 
-  isNeighbour :: Position -> Position -> Bool
-  isNeighbour (Position (r1,c1)) (Position (r2,c2)) =
+  nextto :: Position -> Position -> Bool
+  nextto (Position (r1,c1)) (Position (r2,c2)) =
     (r1 == r2 && abs (c1 - c2) == 1)
     || (c1 == c2 && abs (r1 - r2) == 1)

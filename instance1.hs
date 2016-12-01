@@ -16,47 +16,45 @@ module Instance1 (Maze(..)) where
     exits (Board _ _ _ exits _) = exits
 
     neighbours (Board _ _ _ _ graph) pos =
-        getNeighbours $ Map.lookup pos graph
+        go $ Map.lookup pos graph
       where
-        getNeighbours (Just ns) = ns
-        getNeighbours Nothing = []
+        go (Just ns) = ns
+        go Nothing = []
 
     shortest (Board _ _ _ [] _) = Nothing
     shortest (Board rows cols entrance exits graph)
-        | paths == [] = Nothing
-        | otherwise = Just $ minimumBy (comparing length) paths
+        | sols == [] = Nothing
+        | otherwise = Just $ minimumBy (comparing length) sols
       where
-        paths = allPaths (Board rows cols entrance exits graph) [entrance] []
+        sols = solve (Board rows cols entrance exits graph) [entrance] exits []
 
     longest (Board _ _ _ [] _) = Nothing
     longest (Board rows cols entrance exits graph)
-        | paths == [] = Nothing
-        | otherwise = Just $ maximumBy (comparing length) paths
+        | sols == [] = Nothing
+        | otherwise = Just $ maximumBy (comparing length) sols
       where
-        paths = allPaths (Board rows cols entrance exits graph) [entrance] []
+        sols = solve (Board rows cols entrance exits graph) [entrance] exits []
 
-  allPaths :: Board -> [Position] -> [Position] -> [[Position]]
-  allPaths board path visited = do
-      succNode <- neighbours board currNode
-      guard (not $ succNode `elem` visited)
-      go board path visited currNode succNode
+  solve :: Board -> [Position] -> [Position] -> [Position] -> [[Position]]
+  solve board path exits visited = do
+      suc <- neighbours board cur
+      guard (not $ suc `elem` visited)
+      go suc
     where
-      currNode = head path
-      go (Board rows cols entrance exits graph) path visited currNode succNode
-        | succNode `elem` exits = return $ reverse $ (succNode:path)
-        | otherwise = allPaths (Board rows cols entrance exits graph)
-                               (succNode:path)
-                               (currNode:visited)
+      cur = head path
+      go suc
+        | suc `elem` exits = return $ reverse $ (suc:path)
+        | otherwise = solve board (suc:path) exits (cur:visited)
 
-  instance Show Board where
-    show (Board rows cols entrance exits graph) =
-        concat $ map (++"\n") strings
-      where
-        path = shortest (Board rows cols entrance exits graph)
-        strings = map (\r ->
-                      map (\c ->
-                          getSymbol (Board rows cols entrance exits graph)
-                                    (Position (r,c))
-                                    path)
-                          [0..cols-1])
-                      [0..rows-1]
+  -- instance Show Board where
+  --   show (Board rows cols entrance exits graph) =
+  --       concat $ map (++"\n") strings
+  --     where
+  --       path = shortest (Board rows cols entrance exits graph)
+  --       strings = map (\r ->
+  --                     map (\c ->
+  --                         getSymbol (Board rows cols entrance exits graph)
+  --                                   (Position (r,c))
+  --                                   path)
+  --                         [0..cols-1])
+  --                     [0..rows-1]
