@@ -4,6 +4,7 @@ module CMaze (CBoard(..), Maze(..)) where
 
   import qualified System.Environment
   import Data.List (find)
+  import Control.Monad
   import Maze
   import Position
 
@@ -36,12 +37,14 @@ module CMaze (CBoard(..), Maze(..)) where
     longest board = Nothing
 
   index :: CBoard -> Char -> [Position]
-  index (CBoard maze) item =
-    let rows = length maze
-        cols = length $ head maze
-    in [ Position (r,c) | r <- [0..rows-1],
-                          c <- [0..cols-1],
-                          (CBoard maze) !!! Position (r,c) == item ]
+  index (CBoard maze) item = do
+      row <- [0..rows-1]
+      let cols = length $ maze !! row
+      col <- [0..cols-1]
+      guard $ (CBoard maze) !!! Position (row,col) == item
+      return $ Position (row,col)
+    where
+      rows = length maze
 
   (!!!) :: CBoard -> Position -> Char
   (!!!) (CBoard maze) (Position (r,c)) = maze !! r !! c
@@ -81,9 +84,9 @@ module CMaze (CBoard(..), Maze(..)) where
         concat $ map (++"\n") strings
       where
         rows = length maze
-        cols = length $ head maze
         strings = map (\r ->
-                      map (\c ->
+                      let cols = length $ maze !! r
+                      in map (\c ->
                             getSymbol (CBoard maze) (Position (r,c)) path)
                           [0..cols-1])
                       [0..rows-1]

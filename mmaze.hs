@@ -34,12 +34,14 @@ module MMaze (MBoard(..), Maze(..)) where
       in [(Board entries, "")]
 
   index :: [[Char]] -> MazeSymbol -> [Position]
-  index maze item =
-    let rows = length maze
-        cols = length $ head maze
-    in [ Position (r,c) | r <- [0..rows-1],
-                          c <- [0..cols-1],
-                          maze !!! Position (r,c) == toChar item ]
+  index maze item = do
+      row <- [0..rows-1]
+      let cols = length $ maze !! row
+      col <- [0..cols-1]
+      guard $ maze !!! Position (row,col) == toChar item
+      return $ Position (row,col)
+    where
+      rows = length maze
 
   (!!!) :: [[Char]] -> Position -> Char
   (!!!) maze (Position (r,c)) = maze !! r !! c
